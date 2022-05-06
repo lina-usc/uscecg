@@ -16,6 +16,69 @@ def threshold_fct(x, c=10):
     return expit(c*x)
 
 
+class QuirozJuarezModel:
+
+    def __init__(self, parameters=None):
+
+        self.parameter_names = ["h", "c", "b", "a1"
+                                "a2", "a3", "a4"]
+        self.h = 2.164
+        self.c = 1.35
+        self.b = 4
+        self.a1 = -0.024
+        self.a2 = 0.0216
+        self.a3 = -0.0012
+        self.a4 = 0.12
+
+
+        if parameters is not None:
+            self.set_parameters(parameters)
+
+    @property
+    def parameters(self):
+        return {param_name: getattr(self, param_name) for param_name in self.parameter_names}
+
+    def set_parameters(self, parameters):
+        for param_name, param_val in parameters.items():
+            self.parameter_names.append(param_name)
+            setattr(self, param_name, float(param_val))
+
+    def _cardiac_ode(self, R, t):
+
+        x1, x2, x3, x4 = R
+
+        p = self
+        dRdt = [x1 - x2 - p.c*x1*x2 - x1*x2**2,
+                p.h*x1 - 3*x2 + p.c*x1*x2 + x1*x2**2 + p.b*(x4-x2),
+                x3 - x4 - p.c*x3*x4 - x3*x4**2,
+                p.h*x3 - 3*x4 + p.c*x3*x4 + x3*x4**2 + 2*p.b*(x2-x4)]
+
+        return dRdt
+
+    def cardiac_fwd_model(self, parameters=None,
+                          R_0=None,  # Initial conditions
+                          t=None,  # argument t = None means it can be given any value
+                          noise=0):
+
+        if parameters is not None:
+            self.set_parameters(parameters)
+
+        if R_0 is None:
+            R_0 = (0.1, 0.1, 0.1, 0.1)
+
+        if t is None:
+            t = np.linspace(0, 10, 1001)
+
+        ret_val = odeint(self._cardiac_ode, R_0, t)
+
+        ret_val += noise * (np.random.random(ret_val.shape) - 0.5)
+        return ret_val
+
+    def ecg_fwd_model(self, **kwargs):
+        x1, x2, x3, x4 = self.cardiac_fwd_model(**kwargs).T
+        return self.a1*x1 + self.a2*x2 + self.a3*x3 + self.a4*x4
+
+
 class CardarilliModel:
 
     def __init__(self, parameters=None):
