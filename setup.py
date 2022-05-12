@@ -22,5 +22,6 @@ if __name__ == "__main__":
         author="Christian O'Reilly",
         author_email='christian.oreilly@sc.edu',
         url='https://github.com/christian-oreilly/uscecg',
+        packages=['uscecg'],
         install_requires=install_requires
     )

@@ -31,9 +31,12 @@ def run_emd(signal, nb_level_decomp=5, nb_comp_retain=3):
 
 # Loop for extracting time and frequency domain HRV using rpeaks information
 
-def extract_time_and_freq_features(signal, sampling_rate=512, return_peaks=False):
+def extract_time_and_freq_features(signal, sampling_rate=512, return_peaks=False, run_emd_=True):
 
-    emd_cleaned_sig = run_emd(signal)
+    if run_emd_:
+        emd_cleaned_sig = run_emd(signal)
+    else:
+        emd_cleaned_sig = signal
 
     # Extracting rpeaks using hamilton algorithm
     peaks = biosppy.signals.ecg.ecg(signal=emd_cleaned_sig, sampling_rate=sampling_rate, show=False)[2]
@@ -46,30 +49,35 @@ def extract_time_and_freq_features(signal, sampling_rate=512, return_peaks=False
         return peaks, features
     return features
 
-def extract_dwt_features(signal, threshold = 0.15):
+def run_dwt(signal, threshold = 0.15):
+
+    # Decompose into wavelet components, to the level selected:
+    coeffs = pywt.wavedec(signal, 'db4', level=6)
+    coeffs[1:] = [pywt.threshold(level_coeffs, threshold*np.max(level_coeffs)) for level_coeffs in coeffs[1:]]
+
+    return pywt.waverec(coeffs, 'db4')
+
+
+def extract_dwt_features(signal, threshold = 0.15, run_dwt_=True):
     """
     Calculate Detrended Fluctuation Analysis (DFA) and Sample Entropy after a filtering using the discrete
     wavelet transform.
     :param threshold: # Threshold for filtering, based on "https://arxiv.org/ftp/arxiv/papers/1703/1703.00075.pdf"
     :return:
     """
-    #
+    if run_dwt_:
+        signal = run_dwt(signal, threshold)
 
-    # Decompose into wavelet components, to the level selected:
-    coeffs = pywt.wavedec(signal, 'db4', level=6)
-    coeffs[1:] = [pywt.threshold(level_coeffs, threshold*np.max(level_coeffs)) for level_coeffs in coeffs[1:]]
-
-    datarec = pywt.waverec(coeffs, 'db4')
-    entropy = nolds.sampen(datarec)
-    dfa = nolds.dfa(datarec)
+    entropy = nolds.sampen(signal)
+    dfa = nolds.dfa(signal)
     return pd.DataFrame({"samp_entropy":[entropy], "dfa":[dfa]})
 
 
-def extract_all_features(signal, sampling_rate=512):
-    features_hrv = extract_time_and_freq_features(signal, sampling_rate=sampling_rate)
+def extract_all_features(signal, sampling_rate=512, run_dwt_=True, run_emd_=True):
+    features_hrv = extract_time_and_freq_features(signal, sampling_rate=sampling_rate, run_emd_=run_emd_)
     selected_features = ['HRV_MeanNN', 'HRV_CVNN', 'HRV_MedianNN', 'HRV_pNN20',
                          'HRV_HTI', 'HRV_SD1SD2', 'HRV_CSI', 'HRV_CVI']
 
-    features_dwt = extract_dwt_features(signal)
+    features_dwt = extract_dwt_features(signal, run_dwt_=run_dwt_)
 
     return pd.concat([features_hrv[selected_features], features_dwt], axis=1)

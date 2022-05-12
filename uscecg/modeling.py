@@ -6,7 +6,6 @@
 
 from types import SimpleNamespace
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from scipy.special import expit
 from pathlib import Path
@@ -18,19 +17,23 @@ def threshold_fct(x, c=10):
 
 class QuirozJuarezModel:
 
+    nominal_parameters = {'h': 2.164,
+        'c': 1.35,
+        'b': 4,
+        'g':  7,     # Time scaling
+        'to':  0,     # Time offset
+        'a1': -0.024,
+        'a2': 0.0216,
+        'a3': -0.0012,
+        'a4': 0.12}
+
+    @property
+    def parameter_names(self):
+        return list(self.nominal_parameters.keys())
+
     def __init__(self, parameters=None):
 
-        self.parameter_names = ["h", "c", "b", "a1"
-                                "a2", "a3", "a4"]
-        self.h = 2.164
-        self.c = 1.35
-        self.b = 4
-        self.a1 = -0.024
-        self.a2 = 0.0216
-        self.a3 = -0.0012
-        self.a4 = 0.12
-
-
+        self.set_parameters(self.nominal_parameters)
         if parameters is not None:
             self.set_parameters(parameters)
 
@@ -48,10 +51,10 @@ class QuirozJuarezModel:
         x1, x2, x3, x4 = R
 
         p = self
-        dRdt = [x1 - x2 - p.c*x1*x2 - x1*x2**2,
-                p.h*x1 - 3*x2 + p.c*x1*x2 + x1*x2**2 + p.b*(x4-x2),
-                x3 - x4 - p.c*x3*x4 - x3*x4**2,
-                p.h*x3 - 3*x4 + p.c*x3*x4 + x3*x4**2 + 2*p.b*(x2-x4)]
+        dRdt = [p.g*(x1 - x2 - p.c*x1*x2 - x1*x2**2),
+                p.g*(p.h*x1 - 3*x2 + p.c*x1*x2 + x1*x2**2 + p.b*(x4-x2)),
+                p.g*(x3 - x4 - p.c*x3*x4 - x3*x4**2),
+                p.g*(p.h*x3 - 3*x4 + p.c*x3*x4 + x3*x4**2 + 2*p.b*(x2-x4))]
 
         return dRdt
 
@@ -67,9 +70,11 @@ class QuirozJuarezModel:
             R_0 = (0.1, 0.1, 0.1, 0.1)
 
         if t is None:
-            t = np.linspace(0, 10, 1001)
+            t = np.linspace(self.to, 10+self.to, 1001)
+        else:
+            t += self.to
 
-        ret_val = odeint(self._cardiac_ode, R_0, t)
+        ret_val = odeint(self._cardiac_ode, R_0, t-self.to)
 
         ret_val += noise * (np.random.random(ret_val.shape) - 0.5)
         return ret_val
