@@ -1,2 +1,7 @@
 scipy
 numpy
+emd-signal
+biosspy
+neurokit2
+nolds
+pywavelets

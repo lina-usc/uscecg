@@ -16,16 +16,15 @@ def threshold_fct(x, c=10):
 
 
 class QuirozJuarezModel:
-
     nominal_parameters = {'h': 2.164,
-        'c': 1.35,
-        'b': 4,
-        'g':  7,     # Time scaling
-        'to':  0,     # Time offset
-        'a1': -0.024,
-        'a2': 0.0216,
-        'a3': -0.0012,
-        'a4': 0.12}
+                          'c': 1.35,
+                          'b': 4,
+                          'g': 7,  # Time scaling
+                          'to': 0,  # Time offset
+                          'a1': -0.024,
+                          'a2': 0.0216,
+                          'a3': -0.0012,
+                          'a4': 0.12}
 
     @property
     def parameter_names(self):
@@ -51,10 +50,10 @@ class QuirozJuarezModel:
         x1, x2, x3, x4 = R
 
         p = self
-        dRdt = [p.g*(x1 - x2 - p.c*x1*x2 - x1*x2**2),
-                p.g*(p.h*x1 - 3*x2 + p.c*x1*x2 + x1*x2**2 + p.b*(x4-x2)),
-                p.g*(x3 - x4 - p.c*x3*x4 - x3*x4**2),
-                p.g*(p.h*x3 - 3*x4 + p.c*x3*x4 + x3*x4**2 + 2*p.b*(x2-x4))]
+        dRdt = [p.g * (x1 - x2 - p.c * x1 * x2 - x1 * x2 ** 2),
+                p.g * (p.h * x1 - 3 * x2 + p.c * x1 * x2 + x1 * x2 ** 2 + p.b * (x4 - x2)),
+                p.g * (x3 - x4 - p.c * x3 * x4 - x3 * x4 ** 2),
+                p.g * (p.h * x3 - 3 * x4 + p.c * x3 * x4 + x3 * x4 ** 2 + 2 * p.b * (x2 - x4))]
 
         return dRdt
 
@@ -63,6 +62,9 @@ class QuirozJuarezModel:
                           t=None,  # argument t = None means it can be given any value
                           noise=0):
 
+        assert (self.to >= -1)
+        assert (self.to <= 1)
+
         if parameters is not None:
             self.set_parameters(parameters)
 
@@ -70,18 +72,18 @@ class QuirozJuarezModel:
             R_0 = (0.1, 0.1, 0.1, 0.1)
 
         if t is None:
-            t = np.linspace(self.to, 10+self.to, 1001)
-        else:
-            t += self.to
+            t = np.linspace(0, 10, 1001)
 
-        ret_val = odeint(self._cardiac_ode, R_0, t-self.to)
+        # To offset the signal
+        t = np.concatenate((np.linspace(-1, self.to, 201) - self.to + t[0], t))
+        ret_val = odeint(self._cardiac_ode, R_0, t)[201:]
 
         ret_val += noise * (np.random.random(ret_val.shape) - 0.5)
         return ret_val
 
     def ecg_fwd_model(self, **kwargs):
         x1, x2, x3, x4 = self.cardiac_fwd_model(**kwargs).T
-        return self.a1*x1 + self.a2*x2 + self.a3*x3 + self.a4*x4
+        return self.a1 * x1 + self.a2 * x2 + self.a3 * x3 + self.a4 * x4
 
 
 class CardarilliModel:
